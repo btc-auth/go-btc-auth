@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>首页</title>
+</head>
+<body>
+	<h1>扫描二维码进行认证</h1>
+	<img id="qrCodeImage" src="{{ .qrCodeDataURI }}" alt="二维码">
+    <br/>
+    <textarea id="qrCodeURLText" rows="5" cols="50">{{ .qrCodeURL }}</textarea>
+	<script>
+	var token = "{{ .token }}";
+	var qr_code_url = "{{ .qrCodeURL }}";
+	var qr_code_data_uri = "{{ .qrCodeDataURI }}";
+
+	function pollAuthStatus() {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "/result?token=" + token, true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4) {
+                if (xhr.status == 200) {
+                    var response = JSON.parse(xhr.responseText);
+                    if (response.status === "timeout") {
+                        // 过期，更新 token 和二维码
+                        token = response.new_token;
+                        qr_code_url = response.new_qr_url;
+                        qr_code_data_uri = response.new_qr_data_uri;
+                        document.getElementById("qrCodeImage").src = qr_code_data_uri;
+                        document.getElementById("qrCodeURLText").value = qr_code_url;
+                        setTimeout(pollAuthStatus, 3000); // 3秒后再次轮询
+                    } else if (response.status === "success") {
+                        // 已经认证，跳转到 redirect URL
+                        window.location.href = response.redirect;
+                    } else {
+                        // 没有匹配，等待下一次轮询
+                        setTimeout(pollAuthStatus, 3000); // 3秒后再次轮询
+                    }
+                } else {
+                    // 请求出错，等待下一次轮询
+                    setTimeout(pollAuthStatus, 3000); // 3秒后再次轮询
+                }
+            }
+        };
+        xhr.send();
+    }
+
+    // 开始轮询
+    pollAuthStatus();
+	</script>
+</body>
+</html>
